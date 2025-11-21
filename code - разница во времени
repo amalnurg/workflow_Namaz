@@ -1,0 +1,54 @@
+// Парсим ответ от API
+const apiResponse = $input.first().json;
+const timings = apiResponse.data.timings;
+
+// КОРРЕКЦИЯ ВРЕМЕНИ: Сервер EST (-05:00) → Уфа (+05:00) = +10 часов
+const now = new Date();
+const ufaTime = new Date(now.getTime() + (10 * 60 * 60 * 1000)); // +10 часов
+
+// Намазы для проверки
+const prayers = [
+  { name: 'Фаджр', key: 'Fajr' },
+  { name: 'Зухр', key: 'Dhuhr' },
+  { name: 'Аср', key: 'Asr' },
+  { name: 'Магриб', key: 'Maghrib' },
+  { name: 'Иша', key: 'Isha' }
+];
+
+let result = {
+  currentTime: ufaTime.getHours().toString().padStart(2, '0') + ':' + ufaTime.getMinutes().toString().padStart(2, '0'),
+  nextPrayer: null,
+  nextPrayerTime: null,
+  timeLeft: null,
+  shouldNotify: false
+};
+
+// Ищем следующий намаз
+for (const prayer of prayers) {
+  const [prayerHours, prayerMinutes] = timings[prayer.key].split(':').map(Number);
+  
+  // Создаем объект времени намаза в Уфе
+  const prayerTime = new Date(ufaTime);
+  prayerTime.setHours(prayerHours, prayerMinutes, 0, 0);
+  
+  // Вычисляем разницу в минутах
+  const diffMs = prayerTime - ufaTime;
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  
+  // Отправляем уведомление ТОЛЬКО когда РОВНО 5 минут
+  if (diffMinutes === 5) {
+    result.nextPrayer = prayer.name;
+    result.nextPrayerTime = timings[prayer.key];
+    result.timeLeft = diffMinutes;
+    result.shouldNotify = true;
+    console.log(`🕌 Уведомление: ${prayer.name} через 5 минут (${timings[prayer.key]})`);
+    break;
+  }
+}
+
+// Возвращаем результат ТОЛЬКО если нужно отправить уведомление
+if (result.shouldNotify) {
+  return [result];
+} else {
+  return [];
+}
