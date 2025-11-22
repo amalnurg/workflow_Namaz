@@ -115,7 +115,14 @@ def check_prayer_time(timings):
             notification_key = f"{prayer_name}_{now.strftime('%Y-%m-%d')}"
             
             if notification_key not in sent_notifications:
-                message = f"🕌 ВНИМАНИЕ!\nДо намаза {prayer_name} осталось {time_diff:.0f} минут!\nВремя: {prayer_time}"
+                message = f"""
+🕌 ВНИМАНИЕ!
+
+До намаза {prayer_name} осталось {time_diff:.0f} минут!
+⏰ Время: {prayer_time}
+
+🚰 Не забудь совершить омовение!
+"""
                 logger.info(f"🚨 УВЕДОМЛЕНИЕ: {message}")
                 send_telegram_message(message)
                 # Помечаем что уведомление отправлено
