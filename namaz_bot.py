@@ -11,6 +11,9 @@ TELEGRAM_CHAT_ID = "1959373637"
 CITY = "Ufa"
 COUNTRY = "Russia"
 
+# Глобальная переменная для отслеживания отправленных уведомлений
+sent_notifications = {}
+
 # ==================== ЛОГИРОВАНИЕ ====================
 logging.basicConfig(
     level=logging.INFO,
@@ -106,12 +109,18 @@ def check_prayer_time(timings):
         
         logger.info(f"🕌 {prayer_name}: {prayer_time} (через {time_diff:.1f} мин)")
         
-        # Если до намаза 5 минут или меньше - отправляем уведомление
+        # Если до намаза 5 минут или меньше И мы еще не отправляли уведомление
         if 0 < time_diff <= 5:
-            message = f"🕌 ВНИМАНИЕ!\nДо намаза {prayer_name} осталось {time_diff:.0f} минут!\nВремя: {prayer_time}"
-            logger.info(f"🚨 УВЕДОМЛЕНИЕ: {message}")
-            send_telegram_message(message)
-            return True
+            # Создаем уникальный ключ для этого намаза и дня
+            notification_key = f"{prayer_name}_{now.strftime('%Y-%m-%d')}"
+            
+            if notification_key not in sent_notifications:
+                message = f"🕌 ВНИМАНИЕ!\nДо намаза {prayer_name} осталось {time_diff:.0f} минут!\nВремя: {prayer_time}"
+                logger.info(f"🚨 УВЕДОМЛЕНИЕ: {message}")
+                send_telegram_message(message)
+                # Помечаем что уведомление отправлено
+                sent_notifications[notification_key] = True
+                return True
     
     if next_prayer_name:
         logger.info(f"📊 Ближайший намаз: {next_prayer_name} в {next_prayer_time} (через {min_time_diff:.1f} мин)")
