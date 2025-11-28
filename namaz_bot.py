@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 import time
 import json
+import os
 
 # ==================== НАСТРОЙКИ ====================
 TELEGRAM_BOT_TOKEN = "8397802323:AAEIVNDvG0UWq9mdyA5gqlrPVjycFRanzCI"
@@ -62,6 +63,30 @@ def send_telegram_message(message):
         logger.error(f"❌ Ошибка отправки в Telegram: {e}")
         return False
 
+def save_sent_notifications(sent_notifications):
+    """Сохраняем отправленные уведомления в файл"""
+    try:
+        with open('sent_notifications.json', 'w') as f:
+            json.dump(sent_notifications, f)
+        logger.info("💾 Состояние уведомлений сохранено")
+    except Exception as e:
+        logger.error(f"❌ Ошибка сохранения уведомлений: {e}")
+
+def load_sent_notifications():
+    """Загружаем отправленные уведомления из файла"""
+    try:
+        if os.path.exists('sent_notifications.json'):
+            with open('sent_notifications.json', 'r') as f:
+                notifications = json.load(f)
+                logger.info(f"📁 Загружено {len(notifications)} уведомлений из файла")
+                return notifications
+        else:
+            logger.info("📁 Файл уведомлений не найден, начинаем с чистого листа")
+            return {}
+    except Exception as e:
+        logger.error(f"❌ Ошибка загрузки уведомлений: {e}")
+        return {}
+
 def check_prayer_time(timings, sent_notifications):
     """Проверяем время до намазов с учетом UTC+5 для Уфы"""
     # Уфа = UTC+5
@@ -117,6 +142,8 @@ def check_prayer_time(timings, sent_notifications):
             if send_telegram_message(message):
                 sent_notifications[notification_key] = True
                 return True, sent_notifications
+        else:
+            logger.info(f"📨 Уведомление для {next_prayer_name} уже было отправлено сегодня")
     
     if next_prayer_name:
         logger.info(f"📊 Ближайший намаз: {next_prayer_name} в {next_prayer_time} (через {min_time_diff:.1f} мин)")
@@ -131,8 +158,8 @@ def main():
     # Отправляем тестовое сообщение при запуске
     send_telegram_message("🕌 Бот для намазов запущен! Буду уведомлять за 5 минут до намаза.")
     
-    # Словарь для отслеживания отправленных уведомлений
-    sent_notifications = {}
+    # Восстанавливаем отправленные уведомления из файла
+    sent_notifications = load_sent_notifications()
     
     while True:
         # Получаем расписание
@@ -140,6 +167,9 @@ def main():
         if timings:
             logger.info("📅 Расписание получено, проверяем время...")
             notification_sent, sent_notifications = check_prayer_time(timings, sent_notifications)
+            # Сохраняем состояние после каждой проверки
+            if notification_sent:
+                save_sent_notifications(sent_notifications)
         else:
             logger.error("Не удалось получить расписание")
         
