@@ -11,9 +11,6 @@ TELEGRAM_CHAT_ID = "1959373637"
 CITY = "Ufa"
 COUNTRY = "Russia"
 
-# Глобальная переменная для отслеживания отправленных уведомлений
-sent_notifications = {}
-
 # ==================== ЛОГИРОВАНИЕ ====================
 logging.basicConfig(
     level=logging.INFO,
@@ -65,7 +62,7 @@ def send_telegram_message(message):
         logger.error(f"❌ Ошибка отправки в Telegram: {e}")
         return False
 
-def check_prayer_time(timings):
+def check_prayer_time(timings, sent_notifications):
     """Проверяем время до намазов с учетом UTC+5 для Уфы"""
     # Уфа = UTC+5
     utc_plus_5 = timezone(timedelta(hours=5))
@@ -86,6 +83,7 @@ def check_prayer_time(timings):
     next_prayer_time = None
     min_time_diff = float('inf')
     
+    # Сначала находим ближайший намаз
     for prayer_key, prayer_name in prayers.items():
         prayer_time = timings[prayer_key]
         
@@ -108,33 +106,24 @@ def check_prayer_time(timings):
             next_prayer_time = prayer_time
         
         logger.info(f"🕌 {prayer_name}: {prayer_time} (через {time_diff:.1f} мин)")
+    
+    # Отправляем уведомление только для БЛИЖАЙШЕГО намаза и только один раз
+    if next_prayer_name and 0 < min_time_diff <= 5:
+        notification_key = f"{next_prayer_name}_{now.strftime('%Y-%m-%d')}"
         
-        # Если до намаза 5 минут или меньше И мы еще не отправляли уведомление
-        if 0 < time_diff <= 5:
-            # Создаем уникальный ключ для этого намаза и дня
-            notification_key = f"{prayer_name}_{now.strftime('%Y-%m-%d')}"
-            
-            if notification_key not in sent_notifications:
-                message = f"""
-🕌 ВНИМАНИЕ!
-
-До намаза {prayer_name} осталось {time_diff:.0f} минут!
-⏰ Время: {prayer_time}
-
-🚰 Не забудь совершить омовение!
-"""
-                logger.info(f"🚨 УВЕДОМЛЕНИЕ: {message}")
-                send_telegram_message(message)
-                # Помечаем что уведомление отправлено
+        if notification_key not in sent_notifications:
+            message = f"🕌 ВНИМАНИЕ!\n\nДо намаза {next_prayer_name} осталось {min_time_diff:.0f} минут!\n⏰ Время: {next_prayer_time}\n\n🚰 Не забудь совершить омовение!"
+            logger.info(f"🚨 УВЕДОМЛЕНИЕ: {message}")
+            if send_telegram_message(message):
                 sent_notifications[notification_key] = True
-                return True
+                return True, sent_notifications
     
     if next_prayer_name:
         logger.info(f"📊 Ближайший намаз: {next_prayer_name} в {next_prayer_time} (через {min_time_diff:.1f} мин)")
     else:
         logger.info("⏳ Намазов на сегодня не осталось")
     
-    return False
+    return False, sent_notifications
 
 def main():
     logger.info("🕌 Бот для намазов запущен!")
@@ -142,12 +131,15 @@ def main():
     # Отправляем тестовое сообщение при запуске
     send_telegram_message("🕌 Бот для намазов запущен! Буду уведомлять за 5 минут до намаза.")
     
+    # Словарь для отслеживания отправленных уведомлений
+    sent_notifications = {}
+    
     while True:
         # Получаем расписание
         timings = get_prayer_times()
         if timings:
             logger.info("📅 Расписание получено, проверяем время...")
-            check_prayer_time(timings)
+            notification_sent, sent_notifications = check_prayer_time(timings, sent_notifications)
         else:
             logger.error("Не удалось получить расписание")
         
