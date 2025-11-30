@@ -1,3 +1,4 @@
+cat > namaz_bot_fixed.py << 'EOF'
 #!/usr/bin/env python3
 import requests
 import logging
@@ -73,7 +74,7 @@ def save_sent_notifications(sent_notifications):
         logger.error(f"❌ Ошибка сохранения уведомлений: {e}")
 
 def load_sent_notifications():
-    """Загружаем отправленные уведомления из файла"""
+    """Загружаем отправленные уведомления из файл"""
     try:
         if os.path.exists('sent_notifications.json'):
             with open('sent_notifications.json', 'r') as f:
@@ -92,11 +93,8 @@ def cleanup_old_notifications(sent_notifications):
     utc_plus_5 = timezone(timedelta(hours=5))
     today = datetime.now(utc_plus_5).strftime("%Y-%m-%d")
     
-    # Создаем копию для безопасного удаления
-    notifications_copy = sent_notifications.copy()
-    
     cleaned_count = 0
-    for key in list(notifications_copy.keys()):
+    for key in list(sent_notifications.keys()):
         # Удаляем уведомления за предыдущие дни
         if key.endswith(today) == False and "_cooldown" not in key:
             # Проверяем, что это дата (формат "Намаз_2024-01-01")
@@ -163,7 +161,7 @@ def check_prayer_time(timings, sent_notifications):
         
         logger.info(f"🕌 {prayer_name}: {prayer_time} (через {time_diff:.1f} мин)")
     
-    # Улучшенная логика уведомлений
+    # Улучшенная логика уведомлений - ТОЛЬКО ДЛЯ БЛИЖАЙШЕГО НАМАЗА
     notification_sent = False
     
     if next_prayer_name and 0 < min_time_diff <= 5:
@@ -222,7 +220,7 @@ def main():
     sent_notifications = cleanup_old_notifications(sent_notifications)
     save_sent_notifications(sent_notifications)
     
-    # Счетчик для периодической очистки
+    # Счетчик для периодической очистка
     cleanup_counter = 0
     
     while True:
@@ -261,3 +259,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+EOF
